@@ -1,54 +1,78 @@
-# React + TypeScript + Vite
+# Sprint Planner
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sprint Planner - это веб-приложение для визуального планирования спринта, распределения задач по участникам команды и быстрого поиска перегрузок по людям и срокам.
 
-Currently, two official plugins are available:
+Приложение помогает собрать спринт в одном экране: кто чем занят, когда начинается задача, сколько длится каждая фаза и где появляются конфликты по загрузке.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Какие задачи решает сервис
 
-## Expanding the ESLint configuration
+- Помогает спланировать спринт на 1, 2, 3 недели или на месяц.
+- Позволяет вести структуру команды: команды, участники, роли и их распределение по группам.
+- Дает возможность разбивать задачу на фазы и назначать ответственного на каждую фазу.
+- Показывает задачи на таймлайне относительно даты старта спринта.
+- Автоматически пропускает выходные при расчете длительности фаз.
+- Подсвечивает конфликты, если один и тот же человек назначен на пересекающиеся работы.
+- Показывает загрузку по каждому участнику на каждый рабочий день.
+- Позволяет быстро двигать задачи по календарю drag-and-drop и сразу видеть последствия.
+- Хранит состояние локально в браузере, поэтому данные не теряются при перезагрузке страницы.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Что есть в интерфейсе
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- Левая панель со списком задач, поиском и быстрым переходом к редактированию.
+- Основной таймлайн по дням с группировкой участников по командам.
+- Индикаторы конфликтов и перегрузки по каждому человеку.
+- Настройки спринта: название, дата старта и длительность.
+- Управление командой: добавление команд, участников и ролей.
+- Редактор задач и фаз с назначением исполнителей и длительности.
+
+## Как работает планирование
+
+Каждая задача имеет дату старта внутри спринта и набор фаз. Для каждой фазы можно указать:
+
+- название этапа;
+- исполнителя;
+- длительность в днях.
+
+Фазы выстраиваются последовательно. Если фаза попадает на выходные, приложение переносит выполнение на ближайший рабочий день. Если один исполнитель получает пересекающиеся фазы из разных задач, интерфейс помечает это как конфликт.
+
+## Технологии
+
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS 4
+- LocalStorage для сохранения состояния
+
+## Как запускать
+
+1. Установить зависимости:
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Запустить проект в режиме разработки:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm run dev
+```
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+3. Открыть адрес, который покажет Vite в терминале, обычно это:
+
+```bash
+http://localhost:5173
+```
+
+## Дополнительно
+
+Сборка production-версии:
+
+```bash
+npm run build
+```
+
+Локальный просмотр production-сборки:
+
+```bash
+npm run preview
 ```
