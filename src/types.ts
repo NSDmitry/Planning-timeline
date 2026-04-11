@@ -1,0 +1,58 @@
+export interface Person {
+  id: string;
+  name: string;
+  role: string;
+  color: string;
+  teamId: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  collapsed: boolean;
+}
+
+export interface Phase {
+  id: string;
+  label: string;
+  assigneeId: string;
+  durationDays: number;
+  color?: string; // optional override
+}
+
+export interface Task {
+  id: string;
+  name: string;
+  startDay: number; // 0-based calendar day index from sprint start
+  phases: Phase[];
+  color?: string; // task color override
+}
+
+export interface Sprint {
+  name: string;
+  totalDays: number;
+  startDate: string; // ISO "2026-04-14"
+}
+
+export interface AppState {
+  sprint: Sprint;
+  teams: Team[];
+  people: Person[];
+  tasks: Task[];
+}
+
+export interface PhaseBlock {
+  taskId: string;
+  taskName: string;
+  taskColor: string;
+  phaseId: string;
+  phaseLabel: string;
+  assigneeId: string;      // person whose row this appears on
+  startDay: number;
+  endDay: number;          // exclusive
+  hasConflict: boolean;
+  isExternal: boolean;     // true = no real assignee (e.g. review), shown on prev person's row, no conflict
+}
+
+// Per-person, per-day load summary
+export type DayLoad = 0 | 1 | 2; // 0=free, 1=one task, 2=overloaded

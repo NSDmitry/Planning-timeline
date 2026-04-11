@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm create:*)",
+      "Bash(mkdir -p /tmp/vite-tmp)",
+      "Read(//tmp/**)",
+      "Bash(cp:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(npm run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "WebFetch(domain:activitytimeline.com)",
+      "WebFetch(domain:help.activitytimeline.com)",
+      "WebFetch(domain:marketplace.atlassian.com)",
+      "WebFetch(domain:activitytimeline.atlassian.net)",
+      "WebFetch(domain:localhost)",
+      "Bash(curl -s http://localhost:5174)"
+    ]
+  }
+}
