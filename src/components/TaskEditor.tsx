@@ -15,8 +15,60 @@ interface Props {
 
 const DEFAULT_PHASE_LABELS = ['Dev', 'Review', 'Test'];
 
+type PhaseRoleKind = 'dev' | 'test' | null;
+
 function emptyPhase(label: string): Phase {
   return { id: generateId(), label, assigneeId: '', durationDays: 1 };
+}
+
+function normalizeText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function getPhaseRoleKind(label: string): PhaseRoleKind {
+  const normalized = normalizeText(label);
+
+  if (
+    normalized === 'dev' ||
+    normalized === 'development' ||
+    normalized.includes('разраб') ||
+    normalized.includes('разработ')
+  ) {
+    return 'dev';
+  }
+
+  if (
+    normalized === 'test' ||
+    normalized === 'qa' ||
+    normalized.includes('тест') ||
+    normalized.includes('qa')
+  ) {
+    return 'test';
+  }
+
+  return null;
+}
+
+function isAllowedForPhase(person: Person, phase: Phase): boolean {
+  const phaseRoleKind = getPhaseRoleKind(phase.label);
+  if (!phaseRoleKind) return true;
+
+  const role = normalizeText(person.role);
+
+  if (phaseRoleKind === 'dev') {
+    return role.includes('разработ') || role.includes('developer') || role.includes('dev');
+  }
+
+  if (phaseRoleKind === 'test') {
+    return (
+      role.includes('тест') ||
+      role.includes('qa') ||
+      role.includes('tester') ||
+      role.includes('test')
+    );
+  }
+
+  return true;
 }
 
 export function TaskEditor({ task, people, sprintDays, onSave, onDelete, onClose }: Props) {
@@ -96,8 +148,15 @@ export function TaskEditor({ task, people, sprintDays, onSave, onDelete, onClose
             </button>
           </div>
           <div className="flex flex-col gap-2">
-            {phases.map((phase, idx) => (
-              <div key={phase.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+            {phases.map((phase, idx) => {
+              const phaseRoleKind = getPhaseRoleKind(phase.label);
+              const filteredPeople = people.filter(person => isAllowedForPhase(person, phase));
+              const selectedPerson = people.find(person => person.id === phase.assigneeId);
+              const selectedPersonAllowed =
+                !selectedPerson || filteredPeople.some(person => person.id === selectedPerson.id);
+
+              return (
+                <div key={phase.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="flex flex-col gap-0.5">
                     <button onClick={() => movePhase(idx, -1)} disabled={idx === 0}
@@ -126,10 +185,21 @@ export function TaskEditor({ task, people, sprintDays, onSave, onDelete, onClose
                       onChange={e => updatePhase(idx, { assigneeId: e.target.value })}
                     >
                       <option value="">— внешний / без исполнителя —</option>
-                      {people.map(p => (
+                      {!selectedPersonAllowed && selectedPerson && (
+                        <option value={selectedPerson.id}>
+                          {selectedPerson.name} ({selectedPerson.role}) — недоступно для этой фазы
+                        </option>
+                      )}
+                      {filteredPeople.map(p => (
                         <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
                       ))}
                     </select>
+                    {phaseRoleKind === 'dev' && (
+                      <div className="mt-1 text-[10px] text-slate-400">Для фазы Dev доступны только разработчики.</div>
+                    )}
+                    {phaseRoleKind === 'test' && (
+                      <div className="mt-1 text-[10px] text-slate-400">Для фазы Test доступны только тестировщики.</div>
+                    )}
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-400 block mb-1">
@@ -149,8 +219,9 @@ export function TaskEditor({ task, people, sprintDays, onSave, onDelete, onClose
                     />
                   </div>
                 </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
 
