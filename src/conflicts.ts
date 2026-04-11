@@ -157,14 +157,17 @@ export function computePersonLoad(
   const load = Array<number>(totalDays).fill(0);
   for (const b of blocks) {
     if (b.assigneeId !== personId || b.isExternal) continue;
-    // Count each calendar day this block overlaps (fractional)
-    const start = Math.floor(b.startDay);
-    const end = Math.ceil(b.endDay);
-    for (let d = start; d < end && d < totalDays; d++) {
-      load[d]++;
+    const start = Math.max(0, Math.floor(b.startDay));
+    const end = Math.min(totalDays, Math.ceil(b.endDay));
+
+    for (let d = start; d < end; d++) {
+      const overlapStart = Math.max(b.startDay, d);
+      const overlapEnd = Math.min(b.endDay, d + 1);
+      const overlapDays = Math.max(0, overlapEnd - overlapStart);
+      load[d] += overlapDays;
     }
   }
-  return load.map(n => (n === 0 ? 0 : n === 1 ? 1 : 2)) as DayLoad[];
+  return load.map(days => (days === 0 ? 0 : days > 1 ? 2 : 1)) as DayLoad[];
 }
 
 // Helpers for UI

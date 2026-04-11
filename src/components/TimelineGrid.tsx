@@ -13,6 +13,7 @@ interface Props {
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
   onToggleTeam: (id: string) => void;
+  onCreateTaskAtDay: (day: number, personId: string) => void;
 }
 
 const LABEL_WIDTH = 200;
@@ -92,6 +93,7 @@ interface PositionedPersonRow extends PersonRowData {
 function buildBlockLaneLayout(blocks: PhaseBlock[]): BlockLaneLayout {
   const laneByPhaseId = new Map<string, number>();
   const laneEndDays: number[] = [];
+  const laneOccupiedDays: Array<Set<number>> = [];
 
   const sortedBlocks = [...blocks].sort((a, b) => {
     if (a.startDay !== b.startDay) return a.startDay - b.startDay;
@@ -100,19 +102,51 @@ function buildBlockLaneLayout(blocks: PhaseBlock[]): BlockLaneLayout {
   });
 
   for (const block of sortedBlocks) {
-    let lane = laneEndDays.findIndex(endDay => endDay <= block.startDay);
+    const startCalendarDay = Math.floor(block.startDay);
+    const endCalendarDay = Math.max(startCalendarDay, Math.ceil(block.endDay) - 1);
+
+    let lane = laneEndDays.findIndex((endDay, laneIndex) => {
+      if (endDay > block.startDay) return false;
+
+      const occupiedDays = laneOccupiedDays[laneIndex] ?? new Set<number>();
+      for (let day = startCalendarDay; day <= endCalendarDay; day++) {
+        if (occupiedDays.has(day)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
     if (lane === -1) {
       lane = laneEndDays.length;
       laneEndDays.push(block.endDay);
+      laneOccupiedDays.push(new Set<number>());
     } else {
       laneEndDays[lane] = block.endDay;
     }
+
+    const occupiedDays = laneOccupiedDays[lane];
+    for (let day = startCalendarDay; day <= endCalendarDay; day++) {
+      occupiedDays.add(day);
+    }
+
     laneByPhaseId.set(block.phaseId, lane);
   }
 
   return {
     laneByPhaseId,
     laneCount: Math.max(1, laneEndDays.length),
+  };
+}
+
+function getVisualBlockBounds(block: PhaseBlock) {
+  const visualStartDay = Math.floor(block.startDay);
+  const visualEndDay = Math.max(visualStartDay + 1, Math.ceil(block.endDay));
+
+  return {
+    visualStartDay,
+    visualEndDay,
   };
 }
 
@@ -180,7 +214,7 @@ function sortPeopleForTimeline(items: Person[]): Person[] {
 
 export function TimelineGrid({
   teams, people, tasks, blocks, sprintDays, startDate,
-  onUpdateTask, onDeleteTask, onToggleTeam,
+  onUpdateTask, onDeleteTask, onToggleTeam, onCreateTaskAtDay,
 }: Props) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -324,10 +358,11 @@ export function TimelineGrid({
       for (const block of row.personBlocks) {
         if (block.taskId !== selectedTask.id) continue;
         const lane = row.laneLayout.laneByPhaseId.get(block.phaseId) ?? 0;
+        const { visualStartDay, visualEndDay } = getVisualBlockBounds(block);
         const top = row.top + BLOCK_TOP + lane * (BLOCK_HEIGHT + BLOCK_GAP);
         selectedBlockPositions.set(block.phaseId, {
-          left: block.startDay * dayWidth + 1,
-          right: block.endDay * dayWidth - 1,
+          left: visualStartDay * dayWidth + 1,
+          right: visualEndDay * dayWidth - 1,
           top,
           bottom: top + BLOCK_HEIGHT,
           centerY: top + BLOCK_HEIGHT / 2,
@@ -396,7 +431,22 @@ export function TimelineGrid({
         </div>
 
         {/* Timeline area */}
-        <div className="relative flex-1 overflow-hidden">
+        <div
+          className="relative flex-1 overflow-hidden"
+          onClick={event => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest('[data-task-block="true"]')) return;
+
+            const rect = event.currentTarget.getBoundingClientRect();
+            const offsetX = event.clientX - rect.left;
+            const day = Math.min(
+              sprintDays - 1,
+              Math.max(0, Math.floor(offsetX / dayWidth))
+            );
+
+            onCreateTaskAtDay(day, person.id);
+          }}
+        >
           {/* Grid columns */}
           {Array.from({ length: sprintDays }, (_, i) => {
             const { isWeekend: wk, isToday } = getDayMeta(startDate, i);
@@ -437,8 +487,9 @@ export function TimelineGrid({
                 ? drag.phaseId === block.phaseId
                 : drag?.taskId === block.taskId;
             const dragOffset = isDraggingThis ? drag!.deltaDays * dayWidth : 0;
-            const left = block.startDay * dayWidth + dragOffset;
-            const width = (block.endDay - block.startDay) * dayWidth;
+            const { visualStartDay, visualEndDay } = getVisualBlockBounds(block);
+            const left = visualStartDay * dayWidth + dragOffset;
+            const width = (visualEndDay - visualStartDay) * dayWidth;
             const isConflict = block.hasConflict && !isDraggingThis;
             const isExt = block.isExternal;
             const lane = laneLayout.laneByPhaseId.get(block.phaseId) ?? 0;

@@ -9,6 +9,8 @@ interface Props {
   people: Person[];
   sprintDays: number;
   startDate: string;
+  initialStartDay?: number | null;
+  initialAssigneeId?: string | null;
   onSave: (task: Task) => void;
   onDelete?: (id: string) => void;
   onClose: () => void;
@@ -116,17 +118,43 @@ function formatOffsetDays(days: number): string {
   return formatDuration(days);
 }
 
-export function TaskEditor({ task, people, sprintDays, startDate, onSave, onDelete, onClose }: Props) {
+function applyInitialAssignee(phases: Phase[], people: Person[], initialAssigneeId: string | null): Phase[] {
+  if (!initialAssigneeId) return phases;
+
+  const person = people.find(item => item.id === initialAssigneeId);
+  if (!person) return phases;
+
+  const phaseIndex = phases.findIndex(phase => isAllowedForPhase(person, phase));
+  if (phaseIndex === -1) return phases;
+
+  return phases.map((phase, index) =>
+    index === phaseIndex ? { ...phase, assigneeId: initialAssigneeId } : phase
+  );
+}
+
+export function TaskEditor({
+  task,
+  people,
+  sprintDays,
+  startDate,
+  initialStartDay = null,
+  initialAssigneeId = null,
+  onSave,
+  onDelete,
+  onClose,
+}: Props) {
   const [name, setName] = useState(task?.name ?? '');
   const [sprintGoal, setSprintGoal] = useState(task?.sprintGoal ?? false);
   const sprintEndDate = addDaysISO(startDate, Math.max(sprintDays - 1, 0));
   const initialStartDate = addDaysISO(
     startDate,
-    clamp(task?.startDay ?? 0, 0, Math.max(sprintDays - 1, 0))
+    clamp(task?.startDay ?? initialStartDay ?? 0, 0, Math.max(sprintDays - 1, 0))
   );
   const [selectedStartDate, setSelectedStartDate] = useState(initialStartDate);
   const [phases, setPhases] = useState<Phase[]>(
-    task?.phases.length ? task.phases : DEFAULT_PHASE_LABELS.map(emptyPhase)
+    task?.phases.length
+      ? task.phases
+      : applyInitialAssignee(DEFAULT_PHASE_LABELS.map(emptyPhase), people, initialAssigneeId)
   );
 
   const updatePhase = (idx: number, patch: Partial<Phase>) =>

@@ -25,6 +25,8 @@ export default function App() {
   const { state } = store;
   const [modal, setModal] = useState<Modal>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [newTaskStartDay, setNewTaskStartDay] = useState<number | null>(null);
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<string | null>(null);
   const [view, setView] = useState<ViewKey>('2w');
 
   const sprintDays = VIEW_OPTIONS.find(v => v.key === view)?.days ?? state.sprint.totalDays;
@@ -37,6 +39,13 @@ export default function App() {
     const d = new Date(state.sprint.startDate);
     d.setDate(d.getDate() + weeks * 7);
     store.updateSprint({ ...state.sprint, startDate: d.toISOString().slice(0, 10) });
+  }
+
+  function openNewTask(startDay: number | null = null, assigneeId: string | null = null) {
+    setEditingTask(null);
+    setNewTaskStartDay(startDay);
+    setNewTaskAssigneeId(assigneeId);
+    setModal('newtask');
   }
 
   return (
@@ -123,7 +132,7 @@ export default function App() {
 
           {/* New task */}
           <button
-            onClick={() => setModal('newtask')}
+            onClick={() => openNewTask()}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -143,7 +152,7 @@ export default function App() {
           blocks={blocks}
           onEditTask={setEditingTask}
           onDeleteTask={store.deleteTask}
-          onNewTask={() => setModal('newtask')}
+          onNewTask={() => openNewTask()}
         />
 
         {/* Timeline */}
@@ -159,6 +168,7 @@ export default function App() {
             onUpdateTask={store.updateTask}
             onDeleteTask={store.deleteTask}
             onToggleTeam={store.toggleTeam}
+            onCreateTaskAtDay={openNewTask}
           />
         </div>
       </div>
@@ -192,11 +202,18 @@ export default function App() {
           people={state.people}
           sprintDays={sprintDays}
           startDate={state.sprint.startDate}
+          initialStartDay={editingTask ? null : newTaskStartDay}
+          initialAssigneeId={editingTask ? null : newTaskAssigneeId}
           onSave={task => {
             store.updateTask(editingTask ? task : { ...task, id: generateId() });
           }}
           onDelete={store.deleteTask}
-          onClose={() => { setModal(null); setEditingTask(null); }}
+          onClose={() => {
+            setModal(null);
+            setEditingTask(null);
+            setNewTaskStartDay(null);
+            setNewTaskAssigneeId(null);
+          }}
         />
       )}
     </div>
