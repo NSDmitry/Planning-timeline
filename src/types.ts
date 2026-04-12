@@ -26,6 +26,7 @@ export interface Task {
   name: string;
   sprintGoal: boolean;
   startDay: number; // 0-based calendar day index from sprint start
+  sprintStartDate: string; // ISO date of the sprint this task belongs to
   phases: Phase[];
   color?: string; // task color override
 }

@@ -181,6 +181,7 @@ export function TaskEditor({
     name: name.trim() || 'preview',
     sprintGoal,
     startDay,
+    sprintStartDate: task?.sprintStartDate ?? '',
     phases,
   };
   const phaseSchedule = computeTaskPhaseSchedule(previewTask, startDate);
@@ -196,6 +197,7 @@ export function TaskEditor({
       name: n,
       sprintGoal,
       startDay,
+      sprintStartDate: task?.sprintStartDate ?? '',
       phases: phases.filter(p => p.durationDays > 0),
     });
     onClose();

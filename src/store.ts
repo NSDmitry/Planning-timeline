@@ -48,9 +48,10 @@ function loadState(): AppState {
         return { ...p, teamId: DEFAULT_TEAM_ID };
       });
       parsed.tasks = (parsed.tasks ?? []).map(task => {
-        if (typeof task.sprintGoal === 'boolean') return task;
-        didMigrate = true;
-        return { ...task, sprintGoal: false };
+        let t = task;
+        if (typeof t.sprintGoal !== 'boolean') { t = { ...t, sprintGoal: false }; didMigrate = true; }
+        if (!t.sprintStartDate) { t = { ...t, sprintStartDate: '2026-04-13' }; didMigrate = true; }
+        return t;
       });
       if (didMigrate) saveState(parsed);
       return parsed;
