@@ -12,14 +12,13 @@ import './index.css';
 
 type Modal = 'people' | 'sprint' | 'newtask' | 'newevent' | null;
 
-// Sprint 1 starts April 13, 2026 (Monday); each sprint = 2 weeks
+// Sprint 1 starts April 13, 2026 (Monday)
 const SPRINT_EPOCH = '2026-04-13';
-const SPRINT_DAYS = 14;
 
-function getSprintNumber(startDate: string): number {
+function getSprintNumber(startDate: string, sprintDays: number): number {
   const epoch = new Date(SPRINT_EPOCH).getTime();
   const current = new Date(startDate).getTime();
-  return Math.round((current - epoch) / (14 * 24 * 60 * 60 * 1000)) + 1;
+  return Math.round((current - epoch) / (sprintDays * 24 * 60 * 60 * 1000)) + 1;
 }
 
 export default function App() {
@@ -30,7 +29,7 @@ export default function App() {
   const [newTaskStartDay, setNewTaskStartDay] = useState<number | null>(null);
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<string | null>(null);
 
-  const sprintDays = SPRINT_DAYS;
+  const sprintDays = state.sprint.totalDays;
   const sprintTasks = state.tasks.filter(t => t.sprintStartDate === state.sprint.startDate);
   const sprintEvents = state.events.filter(e => e.sprintStartDate === state.sprint.startDate);
   const blocks = computePhaseBlocks(sprintTasks, state.sprint.startDate, sprintEvents);
@@ -40,7 +39,7 @@ export default function App() {
   // Navigate sprint weeks
   function shiftSprint(sprints: number) {
     const d = new Date(state.sprint.startDate);
-    d.setDate(d.getDate() + sprints * 14);
+    d.setDate(d.getDate() + sprints * sprintDays);
     store.updateSprint({ ...state.sprint, startDate: d.toISOString().slice(0, 10) });
   }
 
@@ -76,9 +75,13 @@ export default function App() {
             >‹</button>
             <button
               onClick={() => setModal('sprint')}
-              className="text-xs text-slate-700 px-2 font-semibold min-w-[80px] text-center hover:text-cyan-600 transition-colors"
+              className="text-xs text-slate-700 px-2 font-semibold min-w-[120px] max-w-[220px] text-center hover:text-cyan-600 transition-colors"
+              title={`${state.sprint.name} · Спринт ${getSprintNumber(state.sprint.startDate, sprintDays)}`}
             >
-              Спринт {getSprintNumber(state.sprint.startDate)}
+              <span className="block truncate">{state.sprint.name}</span>
+              <span className="block text-[10px] font-medium text-slate-400 leading-none">
+                Спринт {getSprintNumber(state.sprint.startDate, sprintDays)}
+              </span>
             </button>
             <button
               onClick={() => shiftSprint(1)}
