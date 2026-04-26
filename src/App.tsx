@@ -7,10 +7,12 @@ import { SprintSettings } from './components/SprintSettings';
 import { PeopleManager } from './components/PeopleManager';
 import { TaskEditor } from './components/TaskEditor';
 import { EventEditor } from './components/EventEditor';
+import { SprintReport } from './components/SprintReport';
 import type { Task, TimelineVisibleWeeks } from './types';
 import './index.css';
 
 type Modal = 'people' | 'sprint' | 'newtask' | 'newevent' | null;
+type View = 'timeline' | 'report';
 
 // Sprint 1 starts April 13, 2026 (Monday)
 const SPRINT_EPOCH = '2026-04-13';
@@ -38,6 +40,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [newTaskStartDay, setNewTaskStartDay] = useState<number | null>(null);
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<string | null>(null);
+  const [view, setView] = useState<View>('timeline');
 
   const sprintDays = state.sprint.totalDays;
   const sprintTasks = state.tasks.filter(t => t.sprintStartDate === state.sprint.startDate);
@@ -133,6 +136,21 @@ export default function App() {
             </div>
           )}
 
+          {/* Report button */}
+          <button
+            onClick={() => setView(view === 'report' ? 'timeline' : 'report')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-colors ${
+              view === 'report'
+                ? 'bg-cyan-50 border-cyan-300 text-cyan-700'
+                : 'bg-white border-slate-300 text-slate-700 hover:border-cyan-400 hover:text-cyan-600'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-6m4 6V7m4 10v-4M5 5h14v14H5z" />
+            </svg>
+            Отчет
+          </button>
+
           {/* People button */}
           <button
             onClick={() => setModal('people')}
@@ -169,35 +187,44 @@ export default function App() {
       </header>
 
       {/* ── Main content ── */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel */}
-        <LeftPanel
+      {view === 'report' ? (
+        <SprintReport
           tasks={sprintTasks}
           people={state.people}
-          blocks={blocks}
-          onEditTask={setEditingTask}
-          onDeleteTask={store.deleteTask}
-          onNewTask={() => openNewTask()}
+          events={sprintEvents}
+          startDate={state.sprint.startDate}
         />
-
-        {/* Timeline */}
-        <div className="flex-1 overflow-hidden bg-white">
-          <TimelineGrid
-            people={state.people}
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left panel */}
+          <LeftPanel
             tasks={sprintTasks}
+            people={state.people}
             blocks={blocks}
-            events={sprintEvents}
-            sprintDays={sprintDays}
-            timelineVisibleWeeks={state.timelineVisibleWeeks}
-            startDate={state.sprint.startDate}
-            onUpdateTask={store.updateTask}
+            onEditTask={setEditingTask}
             onDeleteTask={store.deleteTask}
-            onCreateTaskAtDay={openNewTask}
-            onUpsertEvent={store.upsertEvent}
-            onDeleteEvent={store.deleteEvent}
+            onNewTask={() => openNewTask()}
           />
+
+          {/* Timeline */}
+          <div className="flex-1 overflow-hidden bg-white">
+            <TimelineGrid
+              people={state.people}
+              tasks={sprintTasks}
+              blocks={blocks}
+              events={sprintEvents}
+              sprintDays={sprintDays}
+              timelineVisibleWeeks={state.timelineVisibleWeeks}
+              startDate={state.sprint.startDate}
+              onUpdateTask={store.updateTask}
+              onDeleteTask={store.deleteTask}
+              onCreateTaskAtDay={openNewTask}
+              onUpsertEvent={store.upsertEvent}
+              onDeleteEvent={store.deleteEvent}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Modals ── */}
       {modal === 'people' && (

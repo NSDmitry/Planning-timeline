@@ -17,6 +17,7 @@ export interface Phase {
 export interface Task {
   id: string;
   name: string;
+  link?: string;
   sprintGoal: boolean;
   startDay: number; // 0-based calendar day index from sprint start
   sprintStartDate: string; // ISO date of the sprint this task belongs to
