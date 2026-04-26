@@ -54,7 +54,7 @@ export interface PhaseBlock {
 // Per-person, per-day load summary
 export type DayLoad = 0 | 1 | 2; // 0=free, 1=one task, 2=overloaded
 
-export type SprintEventType = 'vacation' | 'regression' | 'smoke';
+export type SprintEventType = 'vacation' | 'team-day-off' | 'regression' | 'smoke';
 
 export interface SprintEvent {
   id: string;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Person, Task, PhaseBlock, DayLoad, SprintEvent, SprintEventType, EventBlock } from '../types';
-import { computePersonLoad, computeEventBlocks, formatDuration, HOURS_PER_DAY, EXTERNAL_REVIEWER_ID } from '../conflicts';
+import { computePersonLoad, computeEventBlocks, formatDuration, HOURS_PER_DAY, EXTERNAL_REVIEWER_ID, TEAM_EVENT_PERSON_ID } from '../conflicts';
 import { TaskEditor } from './TaskEditor';
 import { EventEditor } from './EventEditor';
 
@@ -57,6 +57,7 @@ const LOAD_BG: Record<DayLoad, string> = {
 
 const EVENT_STYLE: Record<SprintEventType, { bg: string; border: string; text: string; label: string }> = {
   vacation:   { bg: '#f1f5f9', border: '#64748b', text: '#475569', label: 'Отпуск' },
+  'team-day-off': { bg: '#eef2ff', border: '#6366f1', text: '#4338ca', label: 'Нерабочий день' },
   regression: { bg: '#fff7ed', border: '#f97316', text: '#c2410c', label: 'Регресс' },
   smoke:      { bg: '#f0fdfa', border: '#14b8a6', text: '#0f766e', label: 'Смоук'  },
 };
@@ -327,7 +328,7 @@ export function TimelineGrid({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [drag, dayWidth, tasks, onUpdateTask]);
+  }, [drag, dayWidth, events, tasks, onUpdateTask, onUpsertEvent]);
 
   const totalWidth = LABEL_WIDTH + sprintDays * dayWidth;
 
@@ -339,7 +340,7 @@ export function TimelineGrid({
   const rowDataByPersonId = new Map<string, PersonRowData>(
     people.map(person => {
       const personBlocks = blocks.filter(b => b.assigneeId === person.id);
-      const personEventBlocks = eventBlocks.filter(eb => eb.personId === person.id);
+      const personEventBlocks = eventBlocks.filter(eb => eb.personId === person.id || eb.personId === TEAM_EVENT_PERSON_ID);
       const loads: DayLoad[] = computePersonLoad(person.id, blocks, sprintDays, eventBlocks);
       const overloaded = loads.some(l => l === 2);
       const conflictCount = personBlocks.filter(b => b.hasConflict).length;
@@ -653,7 +654,7 @@ export function TimelineGrid({
                     deltaDays: 0,
                   });
                 }}
-                onMouseUp={_e => {
+                onMouseUp={() => {
                   // Click = drag moved 0 days
                   if (drag && drag.deltaDays === 0) {
                     setSelectedTaskId(block.taskId);
@@ -763,9 +764,11 @@ export function TimelineGrid({
     );
   };
 
+  const isDragging = drag !== null;
+
   // Global grabbing cursor while dragging
   useEffect(() => {
-    if (drag) {
+    if (isDragging) {
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
     } else {
@@ -776,7 +779,7 @@ export function TimelineGrid({
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [!!drag]);
+  }, [isDragging]);
 
   useEffect(() => {
     if (!selectedTaskId) return;
@@ -1071,6 +1074,7 @@ export function TimelineGrid({
           people={people}
           sprintDays={sprintDays}
           startDate={startDate}
+          events={events}
           onSave={onUpdateTask}
           onDelete={onDeleteTask}
           onClose={() => setEditingTask(null)}

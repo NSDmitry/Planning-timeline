@@ -28,7 +28,9 @@ const defaultState: AppState = {
 };
 
 function saveState(state: AppState) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {
+    // localStorage can be unavailable in private mode or during quota errors.
+  }
 }
 
 function loadState(): AppState {
@@ -42,7 +44,8 @@ function loadState(): AppState {
       if (parsed.teams !== undefined) { delete parsed.teams; didMigrate = true; }
       // strip legacy teamId from people
       parsed.people = (parsed.people ?? []).map(p => {
-        const { teamId: _teamId, ...rest } = p as Person & { teamId?: string };
+        const rest = { ...p } as Person & { teamId?: string };
+        delete rest.teamId;
         return rest as Person;
       });
       parsed.tasks = (parsed.tasks ?? []).map(task => {
@@ -55,7 +58,9 @@ function loadState(): AppState {
       if (didMigrate) saveState(parsed);
       return parsed;
     }
-  } catch {}
+  } catch {
+    // Broken persisted state should fall back to defaults.
+  }
   return defaultState;
 }
 

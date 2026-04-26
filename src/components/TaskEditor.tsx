@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import type { Task, Phase, Person } from '../types';
+import type { Task, Phase, Person, SprintEvent } from '../types';
 import { Modal } from './Modal';
 import { generateId } from '../store';
 import { daysToHours, hoursToDays, formatDuration, HOURS_PER_DAY, computeTaskPhaseSchedule, isReviewPhase } from '../conflicts';
@@ -9,6 +9,7 @@ interface Props {
   people: Person[];
   sprintDays: number;
   startDate: string;
+  events?: SprintEvent[];
   initialStartDay?: number | null;
   initialAssigneeId?: string | null;
   onSave: (task: Task) => void;
@@ -204,6 +205,7 @@ export function TaskEditor({
   people,
   sprintDays,
   startDate,
+  events = [],
   initialStartDay = null,
   initialAssigneeId = null,
   onSave,
@@ -251,7 +253,7 @@ export function TaskEditor({
     sprintStartDate: task?.sprintStartDate ?? '',
     phases,
   };
-  const phaseSchedule = computeTaskPhaseSchedule(previewTask, startDate);
+  const phaseSchedule = computeTaskPhaseSchedule(previewTask, startDate, events);
   const completionDayPosition = phaseSchedule.reduce((max, phase) => Math.max(max, phase.endDay), startDay);
   const completionDate = dayPositionToISO(startDate, completionDayPosition);
   const overflow = completionDayPosition > sprintDays;

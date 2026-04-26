@@ -198,6 +198,7 @@ export default function App() {
           people={state.people}
           sprintDays={sprintDays}
           startDate={state.sprint.startDate}
+          events={sprintEvents}
           initialStartDay={editingTask ? null : newTaskStartDay}
           initialAssigneeId={editingTask ? null : newTaskAssigneeId}
           onSave={task => {

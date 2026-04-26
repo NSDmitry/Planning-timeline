@@ -2,6 +2,7 @@ import type { Task, PhaseBlock, DayLoad, SprintEvent, EventBlock } from './types
 
 export const HOURS_PER_DAY = 8;
 export const EXTERNAL_REVIEWER_ID = '__external_reviewers__';
+export const TEAM_EVENT_PERSON_ID = '__team__';
 
 function normalizeText(value: string): string {
   return value.trim().toLowerCase();
@@ -25,20 +26,38 @@ function isWeekend(startDate: string, dayIndex: number): boolean {
   return dow === 0 || dow === 6;
 }
 
+function getUnavailableOverlapForDay(unavailableBlocks: EventBlock[], day: number): number {
+  let unavailable = 0;
+  for (const block of unavailableBlocks) {
+    const overlapStart = Math.max(block.startDay, day);
+    const overlapEnd = Math.min(block.endDay, day + 1);
+    unavailable += Math.max(0, overlapEnd - overlapStart);
+  }
+  return Math.min(1, unavailable);
+}
+
 // If dayPos lands on a weekend, snap forward to start of next working day
-function snapToWorkingDay(startDate: string, dayPos: number): number {
+function snapToWorkingDay(startDate: string, dayPos: number, unavailableBlocks: EventBlock[] = []): number {
   let dayIdx = Math.floor(dayPos);
-  if (isWeekend(startDate, dayIdx)) {
+  if (isWeekend(startDate, dayIdx) || getUnavailableOverlapForDay(unavailableBlocks, dayIdx) >= 1) {
     dayIdx++;
-    while (isWeekend(startDate, dayIdx)) dayIdx++;
+    while (isWeekend(startDate, dayIdx) || getUnavailableOverlapForDay(unavailableBlocks, dayIdx) >= 1) dayIdx++;
     return dayIdx; // snapped to integer start of working day
   }
+  const fracInDay = dayPos - dayIdx;
+  const unavailable = getUnavailableOverlapForDay(unavailableBlocks, dayIdx);
+  if (fracInDay < unavailable) return dayIdx + unavailable;
   return dayPos; // keep fractional if already on a working day
 }
 
 // Advance `workingDays` (fractional) working-day capacity from startDay (fractional).
 // Weekends are skipped entirely. Returns end position as fractional day.
-function calcEndDay(startDate: string, startDay: number, workingDays: number): number {
+function calcEndDay(
+  startDate: string,
+  startDay: number,
+  workingDays: number,
+  unavailableBlocks: EventBlock[] = []
+): number {
   let pos = startDay;
   let remaining = workingDays;
 
@@ -49,7 +68,16 @@ function calcEndDay(startDate: string, startDay: number, workingDays: number): n
       continue;
     }
     const fracInDay = pos - dayIdx;          // how far into the current day (0–1)
-    const capacityLeft = 1 - fracInDay;      // remaining capacity of current day
+    const unavailable = getUnavailableOverlapForDay(unavailableBlocks, dayIdx);
+    if (fracInDay < unavailable) {
+      pos = dayIdx + unavailable;
+      continue;
+    }
+    const capacityLeft = Math.max(0, 1 - fracInDay);
+    if (capacityLeft <= 1e-9) {
+      pos = dayIdx + 1;
+      continue;
+    }
     if (remaining <= capacityLeft) {
       pos += remaining;
       remaining = 0;
@@ -75,20 +103,44 @@ export interface ScheduledPhase {
   endDay: number;
 }
 
-export function computeTaskPhaseSchedule(task: Task, startDate: string): ScheduledPhase[] {
+function isTeamEvent(event: SprintEvent | EventBlock): boolean {
+  return event.type === 'team-day-off' || event.personId === TEAM_EVENT_PERSON_ID;
+}
+
+function isScheduleBlockingEvent(event: SprintEvent | EventBlock): boolean {
+  return event.type === 'vacation' || isTeamEvent(event);
+}
+
+function getUnavailableBlocksForPhase(
+  phaseAssigneeId: string,
+  eventBlocks: EventBlock[]
+): EventBlock[] {
+  return eventBlocks.filter(event =>
+    isScheduleBlockingEvent(event) &&
+    (isTeamEvent(event) || event.personId === phaseAssigneeId)
+  );
+}
+
+export function computeTaskPhaseSchedule(
+  task: Task,
+  startDate: string,
+  events: SprintEvent[] = []
+): ScheduledPhase[] {
   const schedule: ScheduledPhase[] = [];
+  const eventBlocks = computeEventBlocks(events, startDate);
   let cursor = snapToWorkingDay(startDate, task.startDay);
 
   for (const phase of task.phases) {
     if (phase.durationDays <= 0) continue;
+    const unavailableBlocks = getUnavailableBlocksForPhase(phase.assigneeId, eventBlocks);
 
     const manualStart =
       typeof phase.startAfterDays === 'number'
-        ? snapToWorkingDay(startDate, task.startDay + phase.startAfterDays)
+        ? snapToWorkingDay(startDate, task.startDay + phase.startAfterDays, unavailableBlocks)
         : null;
 
-    const phaseStart = manualStart ?? snapToWorkingDay(startDate, cursor);
-    const phaseEnd = calcEndDay(startDate, phaseStart, phase.durationDays);
+    const phaseStart = manualStart ?? snapToWorkingDay(startDate, cursor, unavailableBlocks);
+    const phaseEnd = calcEndDay(startDate, phaseStart, phase.durationDays, unavailableBlocks);
 
     schedule.push({
       phaseId: phase.id,
@@ -122,7 +174,7 @@ export function computePhaseBlocks(tasks: Task[], startDate: string, events?: Sp
     const taskColor = task.color ?? TASK_COLORS[taskIdx % TASK_COLORS.length];
     let lastAssigneeId = '';
     const scheduleByPhaseId = new Map(
-      computeTaskPhaseSchedule(task, startDate).map(item => [item.phaseId, item] as const)
+      computeTaskPhaseSchedule(task, startDate, events ?? []).map(item => [item.phaseId, item] as const)
     );
 
     for (const phase of task.phases) {
@@ -181,7 +233,10 @@ export function computePhaseBlocks(tasks: Task[], startDate: string, events?: Sp
   }
 
   for (const [assigneeId, ab] of byAssignee) {
-    const personEvents = eventBlocksByPerson.get(assigneeId) ?? [];
+    const personEvents = [
+      ...(eventBlocksByPerson.get(assigneeId) ?? []),
+      ...(eventBlocksByPerson.get(TEAM_EVENT_PERSON_ID) ?? []),
+    ];
     const maxDay = Math.max(...ab.map(b => Math.ceil(b.endDay)));
     for (let day = 0; day < maxDay; day++) {
       let totalLoad = 0;
@@ -234,7 +289,7 @@ export function computePersonLoad(
   }
   if (eventBlocks) {
     for (const ev of eventBlocks) {
-      if (ev.personId !== personId) continue;
+      if (ev.personId !== personId && ev.personId !== TEAM_EVENT_PERSON_ID) continue;
       const start = Math.max(0, Math.floor(ev.startDay));
       const end = Math.min(totalDays, Math.ceil(ev.endDay));
       for (let d = start; d < end; d++) {

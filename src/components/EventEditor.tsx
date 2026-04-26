@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { SprintEvent, SprintEventType, Person } from '../types';
 import { Modal } from './Modal';
 import { generateId } from '../store';
-import { HOURS_PER_DAY, formatDuration } from '../conflicts';
+import { HOURS_PER_DAY, TEAM_EVENT_PERSON_ID, formatDuration } from '../conflicts';
 
 interface Props {
   event: SprintEvent | null;
@@ -18,12 +18,14 @@ interface Props {
 
 const EVENT_LABELS: Record<SprintEventType, string> = {
   vacation: 'Отпуск',
+  'team-day-off': 'Нерабочий день',
   regression: 'Регресс',
   smoke: 'Смоук',
 };
 
 const EVENT_COLORS: Record<SprintEventType, { bg: string; border: string; text: string }> = {
   vacation: { bg: '#f1f5f9', border: '#64748b', text: '#475569' },
+  'team-day-off': { bg: '#eef2ff', border: '#6366f1', text: '#4338ca' },
   regression: { bg: '#fff7ed', border: '#f97316', text: '#c2410c' },
   smoke: { bg: '#f0fdfa', border: '#14b8a6', text: '#0f766e' },
 };
@@ -98,6 +100,7 @@ export function EventEditor({
   const [personId, setPersonId] = useState<string>(
     event?.personId ?? initialPersonId ?? people[0]?.id ?? ''
   );
+  const isTeamEvent = type === 'team-day-off';
   const initialDateISO = addDaysISO(startDate, event?.startDay ?? initialStartDay ?? 0);
   const [selectedDate, setSelectedDate] = useState<string>(initialDateISO);
   const [durationDraft, setDurationDraft] = useState<string>(() => {
@@ -117,12 +120,12 @@ export function EventEditor({
   function handleSave() {
     const ph = parseHours(durationDraft);
     if (ph === null) { setDurationInvalid(true); return; }
-    if (!personId) return;
+    if (!isTeamEvent && !personId) return;
 
     const saved: SprintEvent = {
       id: event?.id ?? generateId(),
       type,
-      personId,
+      personId: isTeamEvent ? TEAM_EVENT_PERSON_ID : personId,
       startDay,
       durationDays: ph / HOURS_PER_DAY,
       sprintStartDate: event?.sprintStartDate ?? startDate,
@@ -148,7 +151,14 @@ export function EventEditor({
               return (
                 <button
                   key={t}
-                  onClick={() => setType(t)}
+                  onClick={() => {
+                    setType(t);
+                    if (t === 'team-day-off') {
+                      setPersonId(TEAM_EVENT_PERSON_ID);
+                    } else if (personId === TEAM_EVENT_PERSON_ID) {
+                      setPersonId(people[0]?.id ?? '');
+                    }
+                  }}
                   className="flex-1 py-2 px-3 rounded-lg text-xs font-semibold border-2 transition-all"
                   style={{
                     background: isActive ? colors.bg : '#f8fafc',
@@ -163,19 +173,20 @@ export function EventEditor({
           </div>
         </div>
 
-        {/* Person */}
-        <div>
-          <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Участник</label>
-          <select
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            value={personId}
-            onChange={e => setPersonId(e.target.value)}
-          >
-            {people.map(p => (
-              <option key={p.id} value={p.id}>{p.name} — {p.role}</option>
-            ))}
-          </select>
-        </div>
+        {!isTeamEvent && (
+          <div>
+            <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Участник</label>
+            <select
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              value={personId}
+              onChange={e => setPersonId(e.target.value)}
+            >
+              {people.map(p => (
+                <option key={p.id} value={p.id}>{p.name} — {p.role}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Start date + duration */}
         <div className="flex gap-3">
@@ -226,6 +237,12 @@ export function EventEditor({
             <span className="font-semibold">{EVENT_LABELS[type]}</span>
             <span className="opacity-70">·</span>
             <span>{formatDuration(durationDays)}</span>
+            {isTeamEvent && (
+              <>
+                <span className="opacity-70">·</span>
+                <span>вся команда</span>
+              </>
+            )}
             {endDateISO && (
               <>
                 <span className="opacity-70">·</span>
@@ -254,7 +271,7 @@ export function EventEditor({
           </button>
           <button
             onClick={handleSave}
-            disabled={!personId || parseHours(durationDraft) === null}
+            disabled={(!isTeamEvent && !personId) || parseHours(durationDraft) === null}
             className="px-4 py-2 text-xs font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {isNew ? 'Создать' : 'Сохранить'}
