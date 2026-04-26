@@ -7,7 +7,7 @@ import { SprintSettings } from './components/SprintSettings';
 import { PeopleManager } from './components/PeopleManager';
 import { TaskEditor } from './components/TaskEditor';
 import { EventEditor } from './components/EventEditor';
-import type { Task } from './types';
+import type { Task, TimelineVisibleWeeks } from './types';
 import './index.css';
 
 type Modal = 'people' | 'sprint' | 'newtask' | 'newevent' | null;
@@ -28,6 +28,8 @@ function formatSprintRange(startDate: string, sprintDays: number): string {
 
   return `${String(start.getDate()).padStart(2, '0')}.${String(start.getMonth() + 1).padStart(2, '0')} - ${String(end.getDate()).padStart(2, '0')}.${String(end.getMonth() + 1).padStart(2, '0')}`;
 }
+
+const TIMELINE_VIEW_OPTIONS: TimelineVisibleWeeks[] = [1, 2];
 
 export default function App() {
   const store = useAppStore();
@@ -97,6 +99,29 @@ export default function App() {
             >›</button>
           </div>
 
+          {/* Timeline scale */}
+          <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5" aria-label="Масштаб таймлайна">
+            {TIMELINE_VIEW_OPTIONS.map(weeks => {
+              const active = state.timelineVisibleWeeks === weeks;
+              return (
+                <button
+                  key={weeks}
+                  type="button"
+                  onClick={() => store.updateTimelineVisibleWeeks(weeks)}
+                  className={`h-7 min-w-14 px-2.5 rounded-md text-xs font-semibold transition-colors ${
+                    active
+                      ? 'bg-white text-cyan-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/70'
+                  }`}
+                  aria-pressed={active}
+                  title={`Показать ${weeks} ${weeks === 1 ? 'неделю' : 'недели'} по ширине`}
+                >
+                  {weeks} нед
+                </button>
+              );
+            })}
+          </div>
+
           {/* Spacer */}
           <div className="flex-1" />
 
@@ -163,6 +188,7 @@ export default function App() {
             blocks={blocks}
             events={sprintEvents}
             sprintDays={sprintDays}
+            timelineVisibleWeeks={state.timelineVisibleWeeks}
             startDate={state.sprint.startDate}
             onUpdateTask={store.updateTask}
             onDeleteTask={store.deleteTask}

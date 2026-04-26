@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { AppState, Person, Task, Phase, Sprint, SprintEvent } from './types';
+import type { AppState, Person, Task, Phase, Sprint, SprintEvent, TimelineVisibleWeeks } from './types';
 
 const STORAGE_KEY = 'sprint-planner-v2';
 
@@ -25,6 +25,7 @@ const defaultState: AppState = {
   people: [],
   tasks: [],
   events: [],
+  timelineVisibleWeeks: 2,
 };
 
 function saveState(state: AppState) {
@@ -40,6 +41,10 @@ function loadState(): AppState {
       const parsed = JSON.parse(raw) as AppState & { teams?: unknown };
       let didMigrate = false;
       if (!parsed.sprint.startDate) { parsed.sprint.startDate = nearestMondayISO(); didMigrate = true; }
+      if (parsed.timelineVisibleWeeks !== 1 && parsed.timelineVisibleWeeks !== 2) {
+        parsed.timelineVisibleWeeks = 2;
+        didMigrate = true;
+      }
       // drop legacy teams field
       if (parsed.teams !== undefined) { delete parsed.teams; didMigrate = true; }
       // strip legacy teamId from people
@@ -78,6 +83,10 @@ export function useAppStore() {
   // Sprint
   const updateSprint = useCallback((sprint: Sprint) => {
     update(s => ({ ...s, sprint }));
+  }, [update]);
+
+  const updateTimelineVisibleWeeks = useCallback((timelineVisibleWeeks: TimelineVisibleWeeks) => {
+    update(s => ({ ...s, timelineVisibleWeeks }));
   }, [update]);
 
   // People
@@ -154,6 +163,7 @@ export function useAppStore() {
   return {
     state,
     updateSprint,
+    updateTimelineVisibleWeeks,
     addPerson, updatePerson, deletePerson,
     updateTask, deleteTask, updatePhase,
     upsertEvent, deleteEvent,

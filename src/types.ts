@@ -30,11 +30,14 @@ export interface Sprint {
   startDate: string; // ISO "2026-04-14"
 }
 
+export type TimelineVisibleWeeks = 1 | 2;
+
 export interface AppState {
   sprint: Sprint;
   people: Person[];
   tasks: Task[];
   events: SprintEvent[];
+  timelineVisibleWeeks: TimelineVisibleWeeks;
 }
 
 export interface PhaseBlock {

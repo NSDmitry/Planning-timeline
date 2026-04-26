@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Person, Task, PhaseBlock, DayLoad, SprintEvent, SprintEventType, EventBlock } from '../types';
+import type { Person, Task, PhaseBlock, DayLoad, SprintEvent, SprintEventType, EventBlock, TimelineVisibleWeeks } from '../types';
 import { computePersonLoad, computeEventBlocks, formatDuration, HOURS_PER_DAY, EXTERNAL_REVIEWER_ID, TEAM_EVENT_PERSON_ID } from '../conflicts';
 import { TaskEditor } from './TaskEditor';
 import { EventEditor } from './EventEditor';
@@ -10,6 +10,7 @@ interface Props {
   blocks: PhaseBlock[];
   events: SprintEvent[];
   sprintDays: number;
+  timelineVisibleWeeks: TimelineVisibleWeeks;
   startDate: string;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
@@ -89,7 +90,7 @@ const LOAD_LABEL_BG: Record<DayLoad, string> = {
 
 const EVENT_STYLE: Record<SprintEventType, { bg: string; border: string; text: string; label: string }> = {
   vacation:   { bg: '#f1f5f9', border: '#64748b', text: '#475569', label: 'Отпуск' },
-  'team-day-off': { bg: '#eef2ff', border: '#6366f1', text: '#4338ca', label: 'Нерабочий день' },
+  'team-day-off': { bg: '#eef2ff', border: '#6366f1', text: '#4338ca', label: 'Выходной' },
   regression: { bg: '#fff7ed', border: '#f97316', text: '#c2410c', label: 'Регресс' },
   smoke:      { bg: '#f0fdfa', border: '#14b8a6', text: '#0f766e', label: 'Смоук'  },
 };
@@ -301,7 +302,7 @@ function getLoadSummary(loads: DayLoad[], startDate: string) {
 }
 
 export function TimelineGrid({
-  people, tasks, blocks, events, sprintDays, startDate,
+  people, tasks, blocks, events, sprintDays, timelineVisibleWeeks, startDate,
   onUpdateTask, onDeleteTask, onCreateTaskAtDay,
   onUpsertEvent, onDeleteEvent,
 }: Props) {
@@ -333,7 +334,8 @@ export function TimelineGrid({
     return () => observer.disconnect();
   }, []);
 
-  const dayWidth = Math.max(MIN_DAY_WIDTH, (containerWidth - LABEL_WIDTH) / sprintDays);
+  const visibleDays = Math.max(1, Math.min(sprintDays, timelineVisibleWeeks * 7));
+  const dayWidth = Math.max(MIN_DAY_WIDTH, (containerWidth - LABEL_WIDTH) / visibleDays);
   const weekSegments = getWeekSegments(startDate, sprintDays);
 
   // Global mouse handlers for drag

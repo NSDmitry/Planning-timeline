@@ -18,7 +18,7 @@ interface Props {
 
 const EVENT_LABELS: Record<SprintEventType, string> = {
   vacation: 'Отпуск',
-  'team-day-off': 'Нерабочий день',
+  'team-day-off': 'Выходной',
   regression: 'Регресс',
   smoke: 'Смоук',
 };
