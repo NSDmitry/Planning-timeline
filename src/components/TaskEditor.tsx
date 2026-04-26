@@ -139,6 +139,21 @@ function formatHumanDate(iso: string): string {
   });
 }
 
+function formatShortDate(iso: string): string {
+  return parseISODateLocal(iso).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+function formatPhaseRange(startDate: string, startDay: number, endDay: number): string {
+  const from = dayPositionToISO(startDate, Math.max(1, startDay + 1));
+  const to = dayPositionToISO(startDate, Math.max(1, endDay));
+
+  if (from === to) return formatShortDate(from);
+  return `${formatShortDate(from)} - ${formatShortDate(to)}`;
+}
+
 function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -165,6 +180,26 @@ function getPhaseRoleKind(label: string): PhaseRoleKind {
   }
 
   return null;
+}
+
+function getPhaseAccent(label: string): string {
+  const normalized = normalizeText(label);
+
+  if (isReviewPhase(label)) return 'border-violet-300 bg-violet-50 text-violet-700';
+  if (normalized === 'test' || normalized === 'qa' || normalized.includes('тест')) {
+    return 'border-emerald-300 bg-emerald-50 text-emerald-700';
+  }
+  if (normalized === 'dev' || normalized.includes('разраб')) {
+    return 'border-sky-300 bg-sky-50 text-sky-700';
+  }
+
+  return 'border-slate-300 bg-slate-50 text-slate-600';
+}
+
+function getPersonLabel(phase: Phase, people: Person[]): string {
+  if (isReviewPhase(phase.label)) return 'Внешняя фаза';
+  const person = people.find(item => item.id === phase.assigneeId);
+  return person ? person.name : 'Без исполнителя';
 }
 
 function isAllowedForPhase(person: Person, phase: Phase): boolean {
@@ -273,37 +308,47 @@ export function TaskEditor({
   };
 
   return (
-    <Modal title={task ? 'Редактировать задачу' : 'Новая задача'} onClose={onClose}>
-      <div className="flex flex-col gap-4">
+    <Modal title={task ? 'Редактировать задачу' : 'Новая задача'} onClose={onClose} size="wide">
+      <div className="flex flex-col gap-5">
         {/* Name */}
-        <div>
+        <div className="space-y-3">
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1">Название</label>
           <input
             autoFocus
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-cyan-400"
             placeholder="Например: PROJ-42 Авторизация"
             value={name}
             onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSave()}
           />
-          <div className="mt-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
-            <div>Дата начала: {formatHumanDate(selectedStartDate)}</div>
-            <div>Предполагаемая дата завершения: {formatHumanDate(completionDate)}</div>
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-slate-700">
+                <span>{formatShortDate(selectedStartDate)}</span>
+                <span className="text-slate-300">→</span>
+                <span>{formatShortDate(completionDate)}</span>
+                <span className="text-slate-300">·</span>
+                <span>{formatDuration(totalDuration)}</span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">Выходные и командные выходные пропускаются</div>
+            </div>
+            <label className="flex min-w-38 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 cursor-pointer hover:border-cyan-200">
+              <span>
+                <span className="block text-sm font-medium text-slate-700">Цель</span>
+                <span className="block text-xs text-slate-400">для спринта</span>
+              </span>
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={sprintGoal}
+                onChange={e => setSprintGoal(e.target.checked)}
+              />
+              <span className={`relative h-6 w-10 rounded-full transition-colors ${sprintGoal ? 'bg-cyan-500' : 'bg-slate-200'}`}>
+                <span className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${sprintGoal ? 'translate-x-4' : ''}`} />
+              </span>
+            </label>
           </div>
         </div>
-
-        <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 cursor-pointer">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-slate-300 text-cyan-500 focus:ring-cyan-400"
-            checked={sprintGoal}
-            onChange={e => setSprintGoal(e.target.checked)}
-          />
-          <div>
-            <div className="text-sm font-medium text-slate-700">Цель спринта</div>
-            <div className="text-xs text-slate-400">Отмеченные задачи будут отображаться с огоньком.</div>
-          </div>
-        </label>
 
         {/* Start date */}
         <div>
@@ -331,11 +376,12 @@ export function TaskEditor({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Фазы</label>
-            <button onClick={addPhase} className="text-xs text-cyan-600 hover:text-cyan-800 font-medium">
+            <button onClick={addPhase} className="rounded-md px-2 py-1 text-xs text-cyan-700 hover:bg-cyan-50 font-medium">
               + Добавить фазу
             </button>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="relative flex flex-col gap-3 pl-6">
+            <div className="absolute left-2.5 top-6 bottom-6 w-px bg-slate-200" />
             {phases.map((phase, idx) => {
               const phaseRoleKind = getPhaseRoleKind(phase.label);
               const isReview = isReviewPhase(phase.label);
@@ -343,93 +389,101 @@ export function TaskEditor({
               const selectedPerson = people.find(person => person.id === phase.assigneeId);
               const selectedPersonAllowed =
                 !selectedPerson || filteredPeople.some(person => person.id === selectedPerson.id);
+              const scheduled = phaseSchedule.find(item => item.phaseId === phase.id);
+              const accent = getPhaseAccent(phase.label);
 
               return (
-                <div key={phase.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex flex-col gap-0.5">
-                    <button onClick={() => movePhase(idx, -1)} disabled={idx === 0}
-                      className="text-slate-300 hover:text-slate-500 disabled:opacity-20 text-[10px] leading-none">▲</button>
-                    <button onClick={() => movePhase(idx, 1)} disabled={idx === phases.length - 1}
-                      className="text-slate-300 hover:text-slate-500 disabled:opacity-20 text-[10px] leading-none">▼</button>
-                  </div>
-                  <select
-                    className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white"
-                    value={phase.label}
-                    onChange={e => {
-                      const newLabel = e.target.value;
-                      updatePhase(idx, {
-                        label: newLabel,
-                        assigneeId: isReviewPhase(newLabel) ? '' : phase.assigneeId,
-                      });
-                    }}
-                  >
-                    <option value="Dev">Dev</option>
-                    <option value="Review">Review</option>
-                    <option value="Test">Test</option>
-                  </select>
-                  <button onClick={() => removePhase(idx)} className="text-red-300 hover:text-red-500 font-bold text-lg leading-none">×</button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-slate-400 block mb-1">Исполнитель</label>
-                    {isReview ? (
-                      <div className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white text-slate-500 flex items-center gap-1.5">
-                        <span>👥</span>
-                        <span className="font-medium">Внешние ревьюеры</span>
-                      </div>
-                    ) : (
-                      <>
+                <div key={phase.id} className="relative rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className={`absolute -left-[1.86rem] top-4 h-5 w-5 rounded-full border-2 ${accent}`} />
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col gap-1 pt-0.5">
+                      <button onClick={() => movePhase(idx, -1)} disabled={idx === 0}
+                        className="h-5 w-5 rounded text-slate-300 hover:bg-slate-100 hover:text-slate-500 disabled:opacity-20 text-[10px] leading-none"
+                        aria-label="Поднять фазу">▲</button>
+                      <button onClick={() => movePhase(idx, 1)} disabled={idx === phases.length - 1}
+                        className="h-5 w-5 rounded text-slate-300 hover:bg-slate-100 hover:text-slate-500 disabled:opacity-20 text-[10px] leading-none"
+                        aria-label="Опустить фазу">▼</button>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="grid grid-cols-[minmax(0,1fr)_8rem_auto] gap-2">
                         <select
-                          className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                          value={phase.assigneeId}
-                          onChange={e => updatePhase(idx, { assigneeId: e.target.value })}
+                          className="min-w-0 border border-slate-300 rounded-lg bg-white px-2 py-1.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                          value={phase.label}
+                          onChange={e => {
+                            const newLabel = e.target.value;
+                            updatePhase(idx, {
+                              label: newLabel,
+                              assigneeId: isReviewPhase(newLabel) ? '' : phase.assigneeId,
+                            });
+                          }}
                         >
-                          <option value="">— без исполнителя —</option>
-                          {!selectedPersonAllowed && selectedPerson && (
-                            <option value={selectedPerson.id}>
-                              {selectedPerson.name} ({selectedPerson.role}) — недоступно для этой фазы
-                            </option>
-                          )}
-                          {filteredPeople.map(p => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
-                          ))}
+                          <option value="Dev">Dev</option>
+                          <option value="Review">Review</option>
+                          <option value="Test">Test</option>
                         </select>
-                        {phaseRoleKind === 'test' && (
-                          <div className="mt-1 text-[10px] text-slate-400">Для фазы Test доступны только тестировщики.</div>
-                        )}
-                      </>
-                    )}
+                        <HoursInput
+                          hours={daysToHours(phase.durationDays)}
+                          max={sprintDays * HOURS_PER_DAY}
+                          onChange={h => updatePhase(idx, { durationDays: hoursToDays(h) })}
+                        />
+                        <button onClick={() => removePhase(idx)}
+                          className="h-8 w-8 rounded-lg text-red-300 hover:bg-red-50 hover:text-red-500 font-bold text-lg leading-none"
+                          aria-label="Удалить фазу">×</button>
+                      </div>
+                      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+                        <div>
+                          <label className="text-[10px] text-slate-400 block mb-1">Исполнитель</label>
+                          {isReview ? (
+                            <div className="w-full border border-violet-100 rounded-lg bg-violet-50 px-2 py-1.5 text-xs text-violet-700">
+                              <span className="font-medium">Внешние ревьюеры</span>
+                              <span className="ml-1 text-violet-400">без нагрузки</span>
+                            </div>
+                          ) : (
+                            <>
+                              <select
+                                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                                value={phase.assigneeId}
+                                onChange={e => updatePhase(idx, { assigneeId: e.target.value })}
+                              >
+                                <option value="">— без исполнителя —</option>
+                                {!selectedPersonAllowed && selectedPerson && (
+                                  <option value={selectedPerson.id}>
+                                    {selectedPerson.name} ({selectedPerson.role}) — недоступно для этой фазы
+                                  </option>
+                                )}
+                                {filteredPeople.map(p => (
+                                  <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
+                                ))}
+                              </select>
+                              {phaseRoleKind === 'test' && (
+                                <div className="mt-1 text-[10px] text-slate-400">Для фазы Test доступны только тестировщики.</div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="max-w-42 text-right text-xs text-slate-400">
+                          <div>{scheduled ? formatPhaseRange(startDate, scheduled.startDay, scheduled.endDay) : 'без даты'}</div>
+                          <div className="mt-0.5 font-medium text-slate-500">{getPersonLabel(phase, people)}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-slate-400 block mb-1">
-                      Оценка
-                    </label>
-                    <HoursInput
-                      hours={daysToHours(phase.durationDays)}
-                      max={sprintDays * HOURS_PER_DAY}
-                      onChange={h => updatePhase(idx, { durationDays: hoursToDays(h) })}
-                    />
-                  </div>
-                </div>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Summary */}
-        <div className={`text-xs rounded-xl px-3 py-2.5 ${overflow ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-600'}`}>
-          {overflow ? '⚠ ' : 'ℹ '}
-          Итого: {daysToHours(totalDuration)}ч ({formatDuration(totalDuration)}) · выходные пропускаются
-          {overflow && ` · выходит за пределы спринта (${sprintDays * HOURS_PER_DAY}ч)`}
-        </div>
-
         {/* Actions */}
-        <div className="flex gap-2 justify-end pt-2 border-t border-slate-200">
+        <div className="sticky -bottom-4 z-10 -mx-6 flex items-center gap-3 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+          <div className={`mr-auto text-xs ${overflow ? 'text-red-700' : 'text-slate-500'}`}>
+            <span className="font-medium text-slate-700">Итого: {daysToHours(totalDuration)}ч</span>
+            <span> · {formatDuration(totalDuration)} · до {formatHumanDate(completionDate)}</span>
+            {overflow && <span> · выходит за пределы спринта ({sprintDays * HOURS_PER_DAY}ч)</span>}
+          </div>
           {task && onDelete && (
             <button onClick={() => { onDelete(task.id); onClose(); }}
-              className="mr-auto text-xs text-red-400 hover:text-red-600">
+              className="text-xs text-red-400 hover:text-red-600">
               Удалить задачу
             </button>
           )}

@@ -4,10 +4,12 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  size?: 'default' | 'wide';
 }
 
-export function Modal({ title, onClose, children }: ModalProps) {
+export function Modal({ title, onClose, children, size = 'default' }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const widthClass = size === 'wide' ? 'max-w-2xl' : 'max-w-lg';
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -23,7 +25,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className={`bg-white rounded-xl shadow-2xl w-full ${widthClass} max-h-[90vh] flex flex-col`}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
           <button

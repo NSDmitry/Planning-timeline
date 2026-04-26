@@ -162,7 +162,7 @@ function getVisualBlockBounds(block: PhaseBlock) {
   };
 }
 
-function getConflictDays(personBlocks: PhaseBlock[], totalDays: number): Set<number> {
+function getConflictDays(personBlocks: PhaseBlock[], personEventBlocks: EventBlock[], totalDays: number): Set<number> {
   const days = new Set<number>();
 
   for (let day = 0; day < totalDays; day++) {
@@ -173,6 +173,11 @@ function getConflictDays(personBlocks: PhaseBlock[], totalDays: number): Set<num
       const overlapEnd = Math.min(block.endDay, day + 1);
       const overlap = Math.max(0, overlapEnd - overlapStart);
       totalLoad += overlap;
+    }
+    for (const eventBlock of personEventBlocks) {
+      const overlapStart = Math.max(eventBlock.startDay, day);
+      const overlapEnd = Math.min(eventBlock.endDay, day + 1);
+      totalLoad += Math.max(0, overlapEnd - overlapStart);
     }
     if (totalLoad > 1 + 1e-9) {
       days.add(day);
@@ -354,7 +359,7 @@ export function TimelineGrid({
         laneByPhaseId: combinedLayout.laneByPhaseId,
         laneCount: combinedLayout.laneCount,
       };
-      const conflictDays = getConflictDays(personBlocks, sprintDays);
+      const conflictDays = getConflictDays(personBlocks, personEventBlocks, sprintDays);
       const rowHeight = Math.max(
         ROW_HEIGHT,
         BLOCK_TOP + laneLayout.laneCount * BLOCK_HEIGHT + (laneLayout.laneCount - 1) * BLOCK_GAP + BLOCK_BOTTOM
